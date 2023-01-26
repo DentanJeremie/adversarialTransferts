@@ -99,4 +99,34 @@ class CustomizedPath():
 
         return result
 
+# ------------------ TINY IMAGENET ------------------
+    
+    @property
+    def tiny_imagenet(self):
+        return self.data / 'tiny-imagenet-200'
+
+    @property
+    def tiny_imagenet_zip(self):
+        return self.data / 'tiny-imagenet-200.zip'
+
+    @property
+    def tiny_imagenet_wnids(self):
+        return self.tiny_imagenet / 'wnids.txt'
+
+    @property
+    def tiny_imagenet_words(self):
+        return self.tiny_imagenet / 'words.txt'
+
+    @property
+    def tiny_imagenet_val(self):
+        return self.tiny_imagenet / 'val'
+
+    @property
+    def tiny_imagenet_val_annotations(self):
+        return self.tiny_imagenet_val / 'val_annotations.txt'
+
+    @property
+    def tiny_imagenet_val_images(self):
+        return self.tiny_imagenet_val / 'images'
+
 project = CustomizedPath() 
