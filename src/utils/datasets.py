@@ -44,6 +44,9 @@ cifar100 = Datasets_CIFAR100()
 
 # --------------- Tiny_imagenet ---------------
 
+
+# Code partly taken from https://github.com/TheAthleticCoder/Tiny-ImageNet-200
+
 class Datasets_tiny_imagenet():
 
     def __init__(self):
