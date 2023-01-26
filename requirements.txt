@@ -3,3 +3,4 @@ torch
 torchvision
 numpy
 tqdm
+imagio
