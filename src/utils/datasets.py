@@ -26,12 +26,20 @@ class Datasets_tiny_imagenet():
     def __init__(self):
         self._dataset: torchvision.datasets.VisionDataset = None
         self._loader: torch.utils.data.dataloader.DataLoader = None
+        self._num_images = 0
+        self.batch_size = BATCH_SIZE
    
     @property
     def dataset(self):
         if self._dataset is None:
             self.build_dataset()
         return self._dataset
+
+    @property
+    def num_images(self):
+        if self._num_images == 0:
+            self.build_dataset()
+        return self._num_images
         
     @property
     def loader(self):
@@ -85,6 +93,7 @@ class Datasets_tiny_imagenet():
             val_labels_ = np.array([[0]*200])
             val_labels_[0, self.id_dict[class_id]] = 1
             val_labels += val_labels_.tolist()
+            self._num_images += 1
 
         logger.info('Converting datasets to torch TensorDataset...')
         val_data, val_labels = np.array(val_data), np.array(val_labels)

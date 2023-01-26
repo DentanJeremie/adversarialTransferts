@@ -34,8 +34,8 @@ class NRDM():
         self.nb_attack_step = nb_attack_step
         self.attack_name = attack_name
 
-        # Loader
-        self._loader: Datasets_tiny_imagenet = None
+        # Dataset
+        self.dataset: Datasets_tiny_imagenet = tiny_imagenet
 
         # Model
         logger.info(f'Loading VGG model...')
@@ -45,11 +45,6 @@ class NRDM():
         self.model_conv33 = nn.Sequential(*layers).to(self.device).eval()
         logger.info(f'Successfully loaded VGG on {str(self.device)} and truncated it to layer {self.output_layer}!')
 
-    @property
-    def loader(self):
-        if self._loader is None:
-            self._loader = tiny_imagenet.loader
-        return self._loader
 
     def attack_step(
             self,
@@ -68,16 +63,23 @@ class NRDM():
 
         return corrupted_data
 
-    def run_corruption(self, num_images) -> None:
+    def run_corruption(self, num_images = -1) -> None:
         """Corrupts `num_images` of the dataset and stores them, both in disk and in self.corrupted_data and self.original_data. 
+
+        if `num_images`== -1, the corruption is run on the whole dataset.
         """
+        if num_images == -1:
+            num_images = self.dataset.num_images
+        else:
+            num_images = min(num_images, self.dataset.num_images)
 
         self.original_data = None
         self.corrupted_data = None
         self.labels_data = None
 
-        logger.info('Running corruption...')
-        for _, (original_data, labels_data) in enumerate(self.loader):
+        logger.info(f'Running corruption of {num_images} images')
+        for batch_number, (original_data, labels_data) in enumerate(self.dataset.loader):
+            logger.debug(f'Starting batch {batch_number+1}/{int(np.ceil(num_images/self.dataset.batch_size))}')
             original_data = t.cast(torch.Tensor, original_data)
 
             original_data = original_data.to(self.device)
@@ -105,20 +107,20 @@ class NRDM():
             if self.original_data is None:
                 self.original_data = original_data
             else:
-                self.original_data = torch.column_stack((self.original_data, original_data))
+                self.original_data = torch.cat((self.original_data, original_data), dim=0)
 
             if self.corrupted_data is None:
                 self.corrupted_data = corrupted_data
             else:
-                self.corrupted_data = torch.column_stack((self.corrupted_data, corrupted_data))
+                self.corrupted_data = torch.cat((self.corrupted_data, corrupted_data), dim=0)
 
             if self.labels_data is None:
                 self.labels_data = labels_data
             else:
-                self.labels_data = torch.column_stack((self.labels_data, labels_data))
+                self.labels_data = torch.cat((self.labels_data, labels_data), dim=0)
 
             # Checking the number of images
-            if self.original_data.size(0) >= num_images:
+            if num_images>= 0 and self.original_data.size(0) >= num_images:
                 logger.info(f'Enough images corrupted for what was asked ({num_images})!')
                 self.original_data = self.original_data[:num_images]
                 self.corrupted_data = self.corrupted_data[:num_images]
@@ -159,7 +161,7 @@ class NRDM():
 
 def main():
     nrdm14 = NRDM(14)
-    nrdm14.run_corruption(32)
+    nrdm14.run_corruption(128)
 
 
 if __name__ == '__main__':
