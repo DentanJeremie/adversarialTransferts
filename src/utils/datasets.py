@@ -12,6 +12,10 @@ from src.utils.pathtools import project
 from src.utils.logging import logger
 
 TINY_IMAGENET_DOWNLOAD = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
+WNIDS_PATH = project.tiny_imagenet / 'wnids.txt'
+VAL_DIR_PATH = project.tiny_imagenet / 'val'
+VAL_ANNOTATIONS_PATH = VAL_DIR_PATH / 'val_annotations.txt'
+VAL_IMAGES_PATH = VAL_DIR_PATH / 'images'
 BATCH_SIZE = 32
 
 
@@ -29,18 +33,21 @@ class Datasets_tiny_imagenet():
             self.build_dataset()
         return self._dataset
         
-
     @property
     def loader(self):
+        """The dataloader returns a tuple (images, labels) where:
+        * images is of shape (BATCH_SIZE, 3, 64, 64) -> 64x64 RGB images
+        * labels is of shape (BATCH_SIZE, 200) -> one hot encoding of the classes
+        """
         if self._loader is None:
             logger.info(f'Building dataloader...')
-            self._loader = torch.utils.data.DataLoader(self.dataset, batch_size=BATCH_SIZE, shuffle=True)
+            self._loader = torch.utils.data.DataLoader(self.dataset, batch_size=BATCH_SIZE, shuffle=False)
         return self._loader
 
 # -------------------- DOWNLOAD ---------------------
 
     def build_dataset(self):
-        """TO BE COMPLETED"""
+        """Builds the datasets"""
         
         if not project.tiny_imagenet.exists() or len(list(project.tiny_imagenet.iterdir())) <= 2:
             logger.info('Tiny-Imagenet-200 dataset not found')
@@ -66,30 +73,28 @@ class Datasets_tiny_imagenet():
                 zf.extractall(project.data)
         
         self.id_dict = {}
-        for i, line in enumerate(project.tiny_imagenet_wnids.open('r')):
+        for i, line in enumerate(WNIDS_PATH.open('r')):
             self.id_dict[line.replace('\n', '')] = i
         
-        logger.info('Loading dataset...')
-        print('loading dataset')
-        train_data, test_data = [], []
-        train_labels, test_labels = [], []
-        t = time.time()
+        logger.info('Loading dataset from disk...')
+        val_data, val_labels = [], []
 
-        for line in project.tiny_imagenet_val_annotations.open('r'):
+        for line in VAL_ANNOTATIONS_PATH.open('r'):
             img_name, class_id = line.split('\t')[:2]
-            test_data.append(imageio.imread(project.tiny_imagenet_val_images / img_name ,pilmode='RGB'))
-            test_labels_ = np.array([[0]*200])
-            test_labels_[0, self.id_dict[class_id]] = 1
-            test_labels += test_labels_.tolist()
+            val_data.append(imageio.imread(VAL_IMAGES_PATH / img_name, pilmode='RGB'))
+            val_labels_ = np.array([[0]*200])
+            val_labels_[0, self.id_dict[class_id]] = 1
+            val_labels += val_labels_.tolist()
 
-        print('finished loading dataset, in {} seconds'.format(time.time() - t))
-        train_data, train_labels, test_data, test_labels = np.array(train_data), np.array(train_labels), np.array(test_data), np.array(test_labels)
+        logger.info('Converting datasets to torch TensorDataset...')
+        val_data, val_labels = np.array(val_data), np.array(val_labels)
 
-        tensor_x = torch.Tensor(test_data) #torch.cat((torch.Tensor(train_data),torch.Tensor(test_data))) # transform to torch tensor
-        tensor_y = torch.Tensor(test_labels) #torch.cat((torch.Tensor(train_labels),torch.Tensor(test_labels)))
+        tensor_x = torch.Tensor(val_data)
+        tensor_y = torch.Tensor(val_labels)
 
         tensor_x = torch.permute(tensor_x, (0, 3, 1, 2))/255
-        self._dataset = torch.utils.data.TensorDataset(tensor_x,tensor_y) # create your dataset
+        self._dataset = torch.utils.data.TensorDataset(tensor_x,tensor_y)
 
+        logger.info('Dataset build finished !')
 
 tiny_imagenet = Datasets_tiny_imagenet()
