@@ -60,7 +60,7 @@ class NRDM():
         for index, (data, _) in enumerate(self.loader):
             data = t.cast(torch.Tensor, data)
 
-            data.to(self.device)
+            data = data.to(self.device)
             corrupted_data = torch.clone(data)
             original_features = self.model_conv33(data)
 
@@ -96,13 +96,19 @@ nrdm14 = NRDM(14)
 
 def show(imgs):
     """Shows a torch tensor as image or a batch of image or a list of image"""
-    if len(imgs.size()) == 4:
-        imgs = [imgs[index,:,:,:] for index in imgs.size(0)]
     if not isinstance(imgs, list):
         imgs = [imgs]
-    fig, axs = plt.subplots(ncols=len(imgs), squeeze=False)
+    fig, axs = plt.subplots(nrows = len(imgs), ncols=2, squeeze=False)
     for i, img in enumerate(imgs):
-        img = img.detach()
-        img = torchvision.transforms.functional.to_pil_image(img)
-        axs[0, i].imshow(np.asarray(img))
-        axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        img1, img2 = img
+        img1 = img1.detach()
+        img2 = img2.detach()
+        img1 = torchvision.transforms.functional.to_pil_image(img1)
+        img2 = torchvision.transforms.functional.to_pil_image(img2)
+        axs[i, 0].imshow(np.asarray(img1))
+        axs[i, 0].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        axs[i, 1].imshow(np.asarray(img2))
+        axs[i, 1].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    plt.savefig("output/nrdm14.png")
+
+show(nrdm14.run_corruption(2))
