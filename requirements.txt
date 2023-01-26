@@ -3,5 +3,5 @@ torch
 torchvision
 numpy
 tqdm
-imagio
+imageio
 requests
