@@ -1,3 +1,3 @@
 # Adversarial attack transfer
 
-Jérémie Dentan, Nathanaël Cuvelle--Magnar, Abdellah El Mrini
+Jérémie Dentan, Nathanaël Cuvelle--Magar, Abdellah El Mrini
