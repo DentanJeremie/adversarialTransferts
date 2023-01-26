@@ -1,3 +1,4 @@
+import pathlib
 import typing as t
 
 from matplotlib import pyplot as plt
@@ -6,15 +7,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-from tqdm import tqdm
 
 from src.utils.pathtools import project
 from src.utils.logging import logger
 from src.utils.datasets import tiny_imagenet, Datasets_tiny_imagenet
 
 DEFAULT_LAYER = 14
-DEFAULT_EPSILON = 256/16
+DEFAULT_EPSILON = 16/256
 DEFAULT_ATTACK_STEP = 5
+DEFAUTL_NB_PLOT = 5
 DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
 
 
@@ -25,15 +26,16 @@ class NRDM():
         layer = DEFAULT_LAYER,
         epsilon = DEFAULT_EPSILON, 
         nb_attack_step = DEFAULT_ATTACK_STEP, 
-        loader: Datasets_tiny_imagenet = tiny_imagenet.loader,
-        name: str = DEFAULT_ATTACK_NAME,
+        attack_name: str = DEFAULT_ATTACK_NAME,
     ):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.epsilon = epsilon
         self.nb_attack_step = nb_attack_step
-        self.loader = loader
-        self.attack_name = name
+        self.attack_name = attack_name
+
+        # Loader
+        self._loader: Datasets_tiny_imagenet = None
 
         # Model
         logger.info(f'Loading VGG model...')
@@ -42,6 +44,12 @@ class NRDM():
         layers = list(model_full.children())[0][:self.output_layer + 1]
         self.model_conv33 = nn.Sequential(*layers).to(self.device).eval()
         logger.info(f'Successfully loaded VGG on {str(self.device)} and truncated it to layer {self.output_layer}!')
+
+    @property
+    def loader(self):
+        if self._loader is None:
+            self._loader = tiny_imagenet.loader
+        return self._loader
 
     def attack_step(
             self,
@@ -69,7 +77,7 @@ class NRDM():
         self.labels_data = None
 
         logger.info('Running corruption...')
-        for _, (original_data, labels_data) in tqdm(enumerate(self.loader)):
+        for _, (original_data, labels_data) in enumerate(self.loader):
             original_data = t.cast(torch.Tensor, original_data)
 
             original_data = original_data.to(self.device)
@@ -109,30 +117,51 @@ class NRDM():
             else:
                 self.labels_data = torch.column_stack((self.labels_data, labels_data))
 
+            # Checking the number of images
+            if self.original_data.size(0) >= num_images:
+                logger.info(f'Enough images corrupted for what was asked ({num_images})!')
+                self.original_data = self.original_data[:num_images]
+                self.corrupted_data = self.corrupted_data[:num_images]
+                self.labels_data = self.labels_data[:num_images]
+                break
+
+        logger.info('Corruption finished!')
+
         logger.info('Saving to disk...')
-        original_path, corruption_path, labels_path = project.get_new_corruptions_files()
+        original_path, corruption_path, labels_path, plot_path = project.get_new_corruptions_files(self.attack_name)
         torch.save(self.original_data, original_path)
         torch.save(self.corrupted_data, corruption_path)
         torch.save(self.labels_data, labels_path)
-        
-nrdm14 = NRDM(14)
+        self.plot_corruptions(DEFAUTL_NB_PLOT, plot_path)
+        logger.info(f'Saved to {project.as_relative(plot_path)}')
 
-def show(imgs):
-    """Shows a torch tensor as image or a batch of image or a list of image"""
-    if not isinstance(imgs, list):
-        imgs = [imgs]
-    fig, axs = plt.subplots(nrows = len(imgs), ncols=2, squeeze=False)
-    for i, img in enumerate(imgs):
-        img1, img2 = img
-        img1 = img1.detach()
-        img2 = img2.detach()
-        img1 = torchvision.transforms.functional.to_pil_image(img1)
-        img2 = torchvision.transforms.functional.to_pil_image(img2)
-        axs[i, 0].imshow(np.asarray(img1))
-        axs[i, 0].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-        axs[i, 1].imshow(np.asarray(img2))
-        axs[i, 1].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
-    plt.savefig("output/nrdm14.png")
+    def plot_corruptions(self, num_images: int, save_path: pathlib.Path):
+        """Plots a torch tensor as image or a batch of image or a list of image"""
+        logger.info(f'Plotting {num_images} example of corruptions...')
+        images = [
+            (self.original_data[index], self.corrupted_data[index])
+            for index in range(min(num_images, self.original_data.size(0)))
+        ]
+        fig, axs = plt.subplots(nrows = len(images), ncols=2, squeeze=False)
+        for i, img in enumerate(images):
+            img1, img2 = img
+            img1 = img1.detach()
+            img2 = img2.detach()
+            img1 = torchvision.transforms.functional.to_pil_image(img1)
+            img2 = torchvision.transforms.functional.to_pil_image(img2)
+            axs[i, 0].imshow(np.asarray(img1))
+            axs[i, 0].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+            axs[i, 1].imshow(np.asarray(img2))
+            axs[i, 1].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+        plt.savefig(save_path)
 
 # show(nrdm14.run_corruption(2))
+
+def main():
+    nrdm14 = NRDM(14)
+    nrdm14.run_corruption(32)
+
+
+if __name__ == '__main__':
+    main()
         
