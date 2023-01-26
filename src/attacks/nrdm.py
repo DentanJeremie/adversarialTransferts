@@ -10,20 +10,30 @@ from tqdm import tqdm
 
 from src.utils.pathtools import project
 from src.utils.logging import logger
-from src.utils.datasets import cifar100, tiny_imagenet
+from src.utils.datasets import tiny_imagenet, Datasets_tiny_imagenet
 
 DEFAULT_LAYER = 14
 DEFAULT_EPSILON = 256/16
 DEFAULT_ATTACK_STEP = 5
-DEFAULT_DATA = cifar100
+DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
+
 
 class NRDM():
 
-    def __init__(self, layer = DEFAULT_LAYER, epsilon = DEFAULT_EPSILON, nb_attack_step = DEFAULT_ATTACK_STEP, dataset = DEFAULT_DATA):
+    def __init__(
+        self,
+        layer = DEFAULT_LAYER,
+        epsilon = DEFAULT_EPSILON, 
+        nb_attack_step = DEFAULT_ATTACK_STEP, 
+        loader: Datasets_tiny_imagenet = tiny_imagenet.loader,
+        name: str = DEFAULT_ATTACK_NAME,
+    ):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.epsilon = epsilon
         self.nb_attack_step = nb_attack_step
+        self.loader = loader
+        self.attack_name = name
 
         # Model
         logger.info(f'Loading VGG model...')
@@ -32,9 +42,6 @@ class NRDM():
         layers = list(model_full.children())[0][:self.output_layer + 1]
         self.model_conv33 = nn.Sequential(*layers).to(self.device).eval()
         logger.info(f'Successfully loaded VGG on {str(self.device)} and truncated it to layer {self.output_layer}!')
-
-        # Dataset
-        self.loader = dataset.loader
 
     def attack_step(
             self,
@@ -53,22 +60,26 @@ class NRDM():
 
         return corrupted_data
 
-    def run_corruption(self, num_images = 1) -> t.List[t.Tuple[torch.Tensor, torch.Tensor]]:
-        """Returns a list of tuple (original_image, corrupted_image) after performing the attack.
+    def run_corruption(self, num_images) -> None:
+        """Corrupts `num_images` of the dataset and stores them, both in disk and in self.corrupted_data and self.original_data. 
         """
-        result = list()
 
-        for index, (data, _) in enumerate(self.loader):
-            data = t.cast(torch.Tensor, data)
+        self.original_data = None
+        self.corrupted_data = None
+        self.labels_data = None
 
-            data = data.to(self.device)
-            corrupted_data = torch.clone(data)
-            original_features = self.model_conv33(data)
+        logger.info('Running corruption...')
+        for _, (original_data, labels_data) in tqdm(enumerate(self.loader)):
+            original_data = t.cast(torch.Tensor, original_data)
+
+            original_data = original_data.to(self.device)
+            corrupted_data = torch.clone(original_data)
+            original_features = self.model_conv33(original_data)
 
             for step in range(self.nb_attack_step):
                 # First step: we add a random noise to the image
                 if step == 0:
-                    corrupted_data += self.epsilon/2 * torch.randn_like(data)
+                    corrupted_data += self.epsilon/2 * torch.randn_like(original_data)
                     continue
 
                 corrupted_data = corrupted_data.detach() 
@@ -80,19 +91,30 @@ class NRDM():
                 loss.backward(retain_graph = True if step < self.nb_attack_step-1 else False)
 
                 data_grad = corrupted_data.grad.data
-                corrupted_data = self.attack_step(corrupted_data, data_grad, data)
+                corrupted_data = self.attack_step(corrupted_data, data_grad, original_data)
 
+            # Adding to self.original_data and self.corrupted_data
+            if self.original_data is None:
+                self.original_data = original_data
+            else:
+                self.original_data = torch.column_stack((self.original_data, original_data))
+
+            if self.corrupted_data is None:
+                self.corrupted_data = corrupted_data
+            else:
+                self.corrupted_data = torch.column_stack((self.corrupted_data, corrupted_data))
+
+            if self.labels_data is None:
+                self.labels_data = labels_data
+            else:
+                self.labels_data = torch.column_stack((self.labels_data, labels_data))
+
+        logger.info('Saving to disk...')
+        original_path, corruption_path, labels_path = project.get_new_corruptions_files()
+        torch.save(self.original_data, original_path)
+        torch.save(self.corrupted_data, corruption_path)
+        torch.save(self.labels_data, labels_path)
         
-            for index in range(data.size(0)):
-                result.append(
-                    (data[index,:,:,:], corrupted_data[index,:,:,:])
-                )
-
-                if len(result) == num_images:
-                    return result
-
-        return result
-
 nrdm14 = NRDM(14)
 
 def show(imgs):
@@ -112,6 +134,5 @@ def show(imgs):
         axs[i, 1].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
     plt.savefig("output/nrdm14.png")
 
-show(nrdm14.run_corruption(2))
-
+# show(nrdm14.run_corruption(2))
         

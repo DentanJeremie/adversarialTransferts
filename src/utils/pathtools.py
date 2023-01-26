@@ -109,4 +109,22 @@ class CustomizedPath():
     def tiny_imagenet_zip(self):
         return self.data / 'tiny-imagenet-200.zip'
 
+# ------------------ CORRUPTED IMAGES ------------------
+
+    @property
+    def corruptions(self):
+        return self.mkdir_if_not_exists(self.output / 'corruptions')
+    
+    def get_new_corruptions_files(self, corruption_name):
+        original_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_originals.pt'
+        corruption_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_corrupted.pt'
+        labels_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_labels.pt'
+        with original_path.open('w') as f:
+            pass
+        with corruption_path.open('w') as f:
+            pass
+        with labels_path.open('w') as f:
+            pass
+        return original_path, corruption_path, labels_path
+
 project = CustomizedPath() 
