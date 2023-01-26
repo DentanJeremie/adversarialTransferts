@@ -1,6 +1,6 @@
 import time
 import sys
-from zipfile import ZipFile
+import zipfile
 
 import imageio
 import numpy as np
@@ -71,14 +71,19 @@ class Datasets_tiny_imagenet():
                         dl += len(data)
                         f.write(data)
                         done = int(50 * dl / total_length)
-                        sys.stdout.write("\Progression: [%s%s]" % ('=' * done, ' ' * (50-done)) )    
+                        sys.stdout.write("\rProgression: [%s%s]" % ('=' * done, ' ' * (50-done)) )    
                         sys.stdout.flush()
 
                 sys.stdout.write('\n')
 
-            logger.info('Extracting Tiny-Imagenet-200...')
-            with ZipFile(project.tiny_imagenet_zip) as zf:
-                zf.extractall(project.data)
+            logger.info('Extracting Tiny-Imagenet-200... (this can take several minutes)')
+            try:
+                with zipfile.ZipFile(project.tiny_imagenet_zip) as zf:
+                    zf.extractall(project.data)
+            except zipfile.BadZipFile:
+                logger.info(f'Found corrupted .zip file, deleting it an trying again...')
+                project.tiny_imagenet_zip.unlink()
+                self.build_dataset()
         
         self.id_dict = {}
         for i, line in enumerate(WNIDS_PATH.open('r')):

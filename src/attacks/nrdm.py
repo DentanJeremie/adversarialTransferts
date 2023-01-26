@@ -16,6 +16,7 @@ DEFAULT_LAYER = 14
 DEFAULT_EPSILON = 16/256
 DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
+VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
 
 
@@ -79,7 +80,8 @@ class NRDM():
 
         logger.info(f'Running corruption of {num_images} images')
         for batch_number, (original_data, labels_data) in enumerate(self.dataset.loader):
-            logger.debug(f'Starting batch {batch_number+1}/{int(np.ceil(num_images/self.dataset.batch_size))}')
+            if batch_number % VERBOSE == 0:
+                logger.debug(f'Starting batch {batch_number+1}/{int(np.ceil(num_images/self.dataset.batch_size))}')
             original_data = t.cast(torch.Tensor, original_data)
 
             original_data = original_data.to(self.device)
@@ -161,7 +163,7 @@ class NRDM():
 
 def main():
     nrdm14 = NRDM(14)
-    nrdm14.run_corruption(128)
+    nrdm14.run_corruption(-1)
 
 
 if __name__ == '__main__':
