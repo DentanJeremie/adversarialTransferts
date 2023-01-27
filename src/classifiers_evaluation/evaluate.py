@@ -20,7 +20,8 @@ from src.attack.nrdm import ATTACK_FINAL_NAMES
 
 DEFAULT_OPTIMIZER_LR = 0.001
 DEFAULT_LOSS = nn.CrossEntropyLoss()
-DEFAULT_EPOCHS = 1
+DEFAULT_EPOCHS_TRAIN = 5
+DEFAULT_EPOCHS_VAL = 5
 MODELS = [DenseNet(), ResNet(), VGG()]
 MODELS_NAMES = ['DenseNet', 'ResNet', 'VGG']
 RESULTS_HEADER = ['Dataset', 'Accuracy']
@@ -35,7 +36,8 @@ class AdverseEvaluator():
         *,
         dataset: TinyImageNetDataset = tiny_imagenet,
         loss: nn.modules.loss = DEFAULT_LOSS,
-        epochs: int = DEFAULT_EPOCHS,
+        epochs_train: int = DEFAULT_EPOCHS_TRAIN,
+        epochs_val: int = DEFAULT_EPOCHS_VAL,
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -43,7 +45,8 @@ class AdverseEvaluator():
         self.dataset = dataset
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=DEFAULT_OPTIMIZER_LR)
         self.loss = loss
-        self.epochs = epochs
+        self.epochs_train = epochs_train
+        self.epochs_val = epochs_val
 
         # Checking model on disk
         self.model_trained = False
@@ -61,8 +64,11 @@ class AdverseEvaluator():
         """
         Trains the model of `epochs` on the train set of the datasets.
         """
-        logger.info(f'Starting training on {self.epochs} epochs')
-        for epoch in range(1, self.epochs + 1):
+        logger.info('Here we only need a performant classifier, we do not care at overfitting')
+        logger.info('This is why there are som epochs done on the validation set after')
+
+        logger.info(f'Starting training on {self.epochs_train} epochs on the training set...')
+        for epoch in range(1, self.epochs_train + 1):
             for batch_idx, (data, target) in enumerate(self.dataset.train_loader):
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
@@ -74,6 +80,20 @@ class AdverseEvaluator():
                     logger.info(
                         f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(self.dataset.train_dataset)} '
                         f'({100. * batch_idx / len(self.dataset.train_loader):.0f}%)]\tLoss: {loss.item():.6f}')
+
+        logger.info(f'Starting training on {self.epochs_val} epochs on the validation set...')
+        for epoch in range(1, self.epochs_val + 1):
+            for batch_idx, (data, target) in enumerate(self.dataset.val_loader):
+                data, target = data.to(self.device), target.to(self.device)
+                self.optimizer.zero_grad()
+                output = self.model(data)
+                loss = self.loss(output, target.argmax(dim=1))
+                loss.backward()
+                self.optimizer.step()
+                if batch_idx % 20 == 0:
+                    logger.info(
+                        f'Train Epoch: {epoch} [{batch_idx * len(data)}/{len(self.dataset.val_dataset)} '
+                        f'({100. * batch_idx / len(self.dataset.val_loader):.0f}%)]\tLoss: {loss.item():.6f}')
 
         logger.info('Training: done!')
         logger.info('Saving model to disk...') 
@@ -107,7 +127,7 @@ class AdverseEvaluator():
             results.append([attack_name, prop_correct])
             logger.info(f'Accuracy on {attack_name}: {prop_correct}')
 
-        result_path = project.get_new_classification_result_path(self.model_name, self.epochs)
+        result_path = project.get_new_classification_result_path(self.model_name, f'{self.epochs_train}+{self.epochs_val}')
         logger.info(f'Saving results on {project.as_relative(result_path)}')
         pd.DataFrame(results, columns=RESULTS_HEADER).to_csv(result_path)
 

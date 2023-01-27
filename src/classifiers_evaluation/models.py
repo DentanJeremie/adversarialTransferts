@@ -8,7 +8,7 @@ import torchvision
 
 
 class DenseNet(nn.Module):
-    def __init__(self, freeze_backbone = False):
+    def __init__(self, freeze_backbone = True):
         super(DenseNet, self).__init__()
         self.densenet = torchvision.models.densenet201(weights=torchvision.models.DenseNet201_Weights.DEFAULT)
         self.freeze_backbone = freeze_backbone
@@ -20,6 +20,7 @@ class DenseNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 200),
+            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):
@@ -30,7 +31,7 @@ class DenseNet(nn.Module):
     
 
 class VGG(nn.Module):
-    def __init__(self, freeze_backbone = False):
+    def __init__(self, freeze_backbone = True):
         super(VGG, self).__init__()
         self.vgg = torchvision.models.vgg16(weights=torchvision.models.VGG16_Weights.DEFAULT)
         self.freeze_backbone = freeze_backbone
@@ -45,6 +46,7 @@ class VGG(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(4096, 200),
+            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):
@@ -55,7 +57,7 @@ class VGG(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, freeze_backbone = False):
+    def __init__(self, freeze_backbone = True):
         super(ResNet, self).__init__()
         self.resnet = torchvision.models.resnet50(weights=torchvision.models.ResNet50_Weights.DEFAULT)
         self.freeze_backbone = freeze_backbone
@@ -67,6 +69,7 @@ class ResNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 200),
+            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):
