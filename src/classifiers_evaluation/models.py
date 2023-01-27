@@ -20,7 +20,6 @@ class DenseNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 200),
-            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):
@@ -46,7 +45,6 @@ class VGG(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(4096, 200),
-            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):
@@ -69,7 +67,6 @@ class ResNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(512, 200),
-            nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):

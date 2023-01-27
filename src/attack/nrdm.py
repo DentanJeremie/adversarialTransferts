@@ -194,7 +194,20 @@ def main():
     for layer, name in zip(LAYERS, ATTACK_NAME):
         for nb_step in NB_ATTACK_STEPS:
             name_eddited = name.format(nb=nb_step)
-            if name_eddited in ['vgg_conv22_2steps', 'vgg_conv22_3steps', 'vgg_conv22_5steps', 'vgg_conv22_7steps', 'vgg_conv33_2steps', 'vgg_conv33_3steps', 'vgg_conv33_5steps', 'vgg_conv33_7steps', 'vgg_conv43_2steps']:
+            if name_eddited in [
+    'vgg_conv22_2steps',
+    'vgg_conv22_3steps',
+    'vgg_conv22_5steps',
+    'vgg_conv22_7steps',
+    'vgg_conv33_2steps',
+    'vgg_conv33_3steps',
+    'vgg_conv33_5steps',
+    'vgg_conv33_7steps',
+    #'vgg_conv43_2steps',
+    'vgg_conv43_3steps',
+    'vgg_conv43_5steps',
+    'vgg_conv43_7steps',
+]:
                 logger.info(f'Skipping {name_eddited}, already computed')
                 continue
             logger.info(f'Run on layer {layer} with {nb_step} steps -> {name_eddited}')

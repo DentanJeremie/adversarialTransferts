@@ -50,9 +50,12 @@ class AdverseEvaluator():
         possible_existing_file = project.get_lastest_trained_classifiers_file(self.model_name)
         if possible_existing_file is not None:
             logger.info(f'Found a trained version at {project.as_relative(possible_existing_file)}')
-            self.model.load_state_dict(torch.load(possible_existing_file))
-            logger.info('Successfully loaded the trained model from disk!')
-            self.model_trained = True
+            try:
+                self.model.load_state_dict(torch.load(possible_existing_file))
+                logger.info('Successfully loaded the trained model from disk!')
+                self.model_trained = True
+            except RuntimeError:
+                logger.info('Unable to load the model from the disk, preparing for training')
 
     def train(self):
         """
@@ -74,7 +77,7 @@ class AdverseEvaluator():
 
         logger.info('Training: done!')
         logger.info('Saving model to disk...') 
-        torch.save(self.model.state_dict(), project.get_lastest_trained_classifiers_file(self.model_name))
+        torch.save(self.model.state_dict(), project.get_new_trained_classifier_file(self.model_name))
         self.model_trained = True
 
     def evaluate(self) -> t.List[t.Tuple[str, float]]:
