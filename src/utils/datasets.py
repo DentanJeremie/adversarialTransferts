@@ -7,12 +7,15 @@ import numpy as np
 import requests
 import torch
 import torchvision
+from tqdm import tqdm
 
 from src.utils.pathtools import project
 from src.utils.logging import logger
 
 TINY_IMAGENET_DOWNLOAD = 'http://cs231n.stanford.edu/tiny-imagenet-200.zip'
 WNIDS_PATH = project.tiny_imagenet / 'wnids.txt'
+TRAIN_DIR_PATH = project.tiny_imagenet / 'train'
+TRAIN_IMAGE_FORLDER_NAME = 'images'
 VAL_DIR_PATH = project.tiny_imagenet / 'val'
 VAL_ANNOTATIONS_PATH = VAL_DIR_PATH / 'val_annotations.txt'
 VAL_IMAGES_PATH = VAL_DIR_PATH / 'images'
@@ -21,42 +24,67 @@ BATCH_SIZE = 32
 
 # Code partly taken from https://github.com/TheAthleticCoder/Tiny-ImageNet-200
 
-class Datasets_tiny_imagenet():
+class TinyImageNetDataset():
 
     def __init__(self):
-        self._dataset: torchvision.datasets.VisionDataset = None
-        self._loader: torch.utils.data.dataloader.DataLoader = None
-        self._num_images = 0
+        self._train_dataset: torchvision.datasets.VisionDataset = None
+        self._train_loader: torch.utils.data.dataloader.DataLoader = None
+        self._train_num_images = 0
+        self._val_dataset: torchvision.datasets.VisionDataset = None
+        self._val_loader: torch.utils.data.dataloader.DataLoader = None
+        self._val_num_images = 0
         self.batch_size = BATCH_SIZE
    
     @property
-    def dataset(self):
-        if self._dataset is None:
-            self.build_dataset()
-        return self._dataset
+    def train_dataset(self):
+        if self._train_dataset is None:
+            self.build_train_dataset()
+        return self._train_dataset
 
     @property
-    def num_images(self):
-        if self._num_images == 0:
-            self.build_dataset()
-        return self._num_images
+    def train_num_images(self):
+        if self._train_num_images == 0:
+            self.build_train_dataset()
+        return self._train_num_images
         
     @property
-    def loader(self):
+    def val_dataset(self):
+        if self._val_dataset is None:
+            self.build_val_dataset()
+        return self._val_dataset
+
+    @property
+    def val_num_images(self):
+        if self._val_num_images == 0:
+            self.build_val_dataset()
+        return self._val_num_images
+        
+    @property
+    def train_loader(self):
         """The dataloader returns a tuple (images, labels) where:
         * images is of shape (BATCH_SIZE, 3, 64, 64) -> 64x64 RGB images
         * labels is of shape (BATCH_SIZE, 200) -> one hot encoding of the classes
         """
-        if self._loader is None:
+        if self._train_loader is None:
             logger.info(f'Building dataloader...')
-            self._loader = torch.utils.data.DataLoader(self.dataset, batch_size=BATCH_SIZE, shuffle=False)
-        return self._loader
+            self._train_loader = torch.utils.data.DataLoader(self.train_dataset, batch_size=BATCH_SIZE, shuffle=False)
+        return self._train_loader
+
+    @property
+    def val_loader(self):
+        """The dataloader returns a tuple (images, labels) where:
+        * images is of shape (BATCH_SIZE, 3, 64, 64) -> 64x64 RGB images
+        * labels is of shape (BATCH_SIZE, 200) -> one hot encoding of the classes
+        """
+        if self._val_loader is None:
+            logger.info(f'Building dataloader...')
+            self._val_loader = torch.utils.data.DataLoader(self.val_dataset, batch_size=BATCH_SIZE, shuffle=False)
+        return self._val_loader
 
 # -------------------- DOWNLOAD ---------------------
 
-    def build_dataset(self):
-        """Builds the datasets"""
-        
+    def check_downloaded(self):
+        """Checks that the datasets are correctly downloaded"""
         if not project.tiny_imagenet.exists() or len(list(project.tiny_imagenet.iterdir())) <= 2:
             logger.info('Tiny-Imagenet-200 dataset not found')
 
@@ -83,8 +111,47 @@ class Datasets_tiny_imagenet():
             except zipfile.BadZipFile:
                 logger.info(f'Found corrupted .zip file, deleting it an trying again...')
                 project.tiny_imagenet_zip.unlink()
-                self.build_dataset()
+                self.check_downloaded()
+
+        else:
+            logger.info(f'Tiny-Imagenet-200 found at {project.as_relative(project.tiny_imagenet)}')
+
+    def build_train_dataset(self):
+        """Builds the train dataset"""
+        self.check_downloaded()
+    
+        self.id_dict = {}
+        for i, line in enumerate(WNIDS_PATH.open('r')):
+            self.id_dict[line.replace('\n', '')] = i
         
+        logger.info('Loading dataset from disk...')
+        train_data, train_labels = [], []
+
+        logger.info('Loading train set...')
+        for class_path in tqdm(list(TRAIN_DIR_PATH.iterdir())):
+            class_id= class_path.name
+            for image_path in (class_path / TRAIN_IMAGE_FORLDER_NAME).iterdir():
+                train_data.append(imageio.imread(image_path, pilmode='RGB'))
+                train_labels_ = np.array([[0]*200])
+                train_labels_[0, self.id_dict[class_id]] = 1
+                train_labels += train_labels_.tolist()
+                self._train_num_images += 1
+
+        logger.info('Converting datasets to torch TensorDataset...')
+        train_data, train_labels = np.array(train_data), np.array(train_labels)
+
+        tensor_x_train = torch.Tensor(train_data)
+        tensor_y_train = torch.Tensor(train_labels)
+
+        tensor_x_train = torch.permute(tensor_x_train, (0, 3, 1, 2))/255
+        self._train_dataset = torch.utils.data.TensorDataset(tensor_x_train,tensor_y_train)
+
+        logger.info('Dataset build finished !')
+    
+    def build_val_dataset(self):
+        """Builds the test dataset"""
+        self.check_downloaded()
+    
         self.id_dict = {}
         for i, line in enumerate(WNIDS_PATH.open('r')):
             self.id_dict[line.replace('\n', '')] = i
@@ -92,23 +159,24 @@ class Datasets_tiny_imagenet():
         logger.info('Loading dataset from disk...')
         val_data, val_labels = [], []
 
-        for line in VAL_ANNOTATIONS_PATH.open('r'):
+        logger.info('Loading validation set...')
+        for line in tqdm(list(VAL_ANNOTATIONS_PATH.open('r'))):
             img_name, class_id = line.split('\t')[:2]
             val_data.append(imageio.imread(VAL_IMAGES_PATH / img_name, pilmode='RGB'))
             val_labels_ = np.array([[0]*200])
             val_labels_[0, self.id_dict[class_id]] = 1
             val_labels += val_labels_.tolist()
-            self._num_images += 1
+            self._val_num_images += 1
 
         logger.info('Converting datasets to torch TensorDataset...')
         val_data, val_labels = np.array(val_data), np.array(val_labels)
 
-        tensor_x = torch.Tensor(val_data)
-        tensor_y = torch.Tensor(val_labels)
+        tensor_x_val = torch.Tensor(val_data)
+        tensor_y_val = torch.Tensor(val_labels)
 
-        tensor_x = torch.permute(tensor_x, (0, 3, 1, 2))/255
-        self._dataset = torch.utils.data.TensorDataset(tensor_x,tensor_y)
+        tensor_x_val = torch.permute(tensor_x_val, (0, 3, 1, 2))/255
+        self._val_dataset = torch.utils.data.TensorDataset(tensor_x_val,tensor_y_val)
 
         logger.info('Dataset build finished !')
 
-tiny_imagenet = Datasets_tiny_imagenet()
+tiny_imagenet = TinyImageNetDataset()

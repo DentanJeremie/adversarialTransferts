@@ -10,7 +10,7 @@ import torchvision
 
 from src.utils.pathtools import project
 from src.utils.logging import logger
-from src.utils.datasets import tiny_imagenet, Datasets_tiny_imagenet
+from src.utils.datasets import tiny_imagenet, TinyImageNetDataset
 
 DEFAULT_LAYER = 14
 DEFAULT_EPSILON = 16/256
@@ -36,7 +36,7 @@ class NRDM():
         self.attack_name = attack_name
 
         # Dataset
-        self.dataset: Datasets_tiny_imagenet = tiny_imagenet
+        self.dataset: TinyImageNetDataset = tiny_imagenet
 
         # Model
         logger.info(f'Loading VGG model...')

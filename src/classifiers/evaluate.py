@@ -10,7 +10,7 @@ import torchvision
 
 from src.utils.pathtools import project
 from src.utils.logging import logger
-from src.utils.datasets import tiny_imagenet, Datasets_tiny_imagenet
+from src.utils.datasets import tiny_imagenet, TinyImageNetDataset
 from src.classifiers.models import DenseNet, ResNet, VGG
 
 """
