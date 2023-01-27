@@ -116,6 +116,8 @@ class TinyImageNetDataset():
         else:
             logger.info(f'Tiny-Imagenet-200 found at {project.as_relative(project.tiny_imagenet)}')
 
+# -------------------- BUILDS ---------------------
+
     def build_train_dataset(self):
         """Builds the train dataset"""
         self.check_downloaded()
@@ -140,11 +142,11 @@ class TinyImageNetDataset():
         logger.info('Converting datasets to torch TensorDataset...')
         train_data, train_labels = np.array(train_data), np.array(train_labels)
 
-        tensor_x_train = torch.Tensor(train_data)
-        tensor_y_train = torch.Tensor(train_labels)
+        self.tensor_x_train = torch.Tensor(train_data)
+        self.tensor_y_train = torch.Tensor(train_labels)
 
         tensor_x_train = torch.permute(tensor_x_train, (0, 3, 1, 2))/255
-        self._train_dataset = torch.utils.data.TensorDataset(tensor_x_train,tensor_y_train)
+        self._train_dataset = torch.utils.data.TensorDataset(self.tensor_x_train,self.tensor_y_train)
 
         logger.info('Dataset build finished !')
     
@@ -171,12 +173,23 @@ class TinyImageNetDataset():
         logger.info('Converting datasets to torch TensorDataset...')
         val_data, val_labels = np.array(val_data), np.array(val_labels)
 
-        tensor_x_val = torch.Tensor(val_data)
-        tensor_y_val = torch.Tensor(val_labels)
+        self.tensor_x_val = torch.Tensor(val_data)
+        self.tensor_y_val = torch.Tensor(val_labels)
 
         tensor_x_val = torch.permute(tensor_x_val, (0, 3, 1, 2))/255
-        self._val_dataset = torch.utils.data.TensorDataset(tensor_x_val,tensor_y_val)
+        self._val_dataset = torch.utils.data.TensorDataset(self.tensor_x_val,self.tensor_y_val)
 
         logger.info('Dataset build finished !')
+
+# -------------------- UTILS ---------------------
+
+    def get_loader_from_tensors(self, img_tensor: torch.Tensor, labels_tensor: torch.TensorType = None) -> torch.utils.data.dataloader.DataLoader:
+        """Builds a dataloader from the images tensor and labels tensor
+        If no labels are provided, the labels for the validation set are loaded."""
+        if labels_tensor is None:
+            self.build_val_dataset()
+            labels_tensor = self.tensor_y_val
+        dataset = torch.utils.data.TensorDataset(img_tensor,labels_tensor)
+        return torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 tiny_imagenet = TinyImageNetDataset()

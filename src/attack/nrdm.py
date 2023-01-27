@@ -20,6 +20,24 @@ VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
 DEFAULT_FULL_MODEL = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT)
 
+LAYERS = [7, 14, 21]
+NB_ATTACK_STEPS = [2, 3, 5, 7]
+ATTACK_NAME = ['vgg_conv22_{nb}steps', 'vgg_conv33_{nb}steps', 'vgg_conv43_{nb}steps']
+ATTACK_FINAL_NAMES = [
+    'vgg_conv22_2steps',
+    'vgg_conv22_3steps',
+    'vgg_conv22_5steps',
+    'vgg_conv22_7steps',
+    'vgg_conv33_2steps',
+    'vgg_conv33_3steps',
+    'vgg_conv33_5steps',
+    'vgg_conv33_7steps',
+    'vgg_conv43_2steps',
+    'vgg_conv43_3steps',
+    'vgg_conv43_5steps',
+    'vgg_conv43_7steps',
+]
+
 
 class NRDM():
 
@@ -173,12 +191,12 @@ class NRDM():
 
 
 def main():
-    layers = [7, 14, 21]
-    nb_attack_step = [2, 3, 5, 7]
-    attack_name = ['vgg_conv22_{nb}steps', 'vgg_conv33_{nb}steps', 'vgg_conv43_{nb}steps']
-    for layer, name in zip(layers, attack_name):
-        for nb_step in nb_attack_step:
+    for layer, name in zip(LAYERS, ATTACK_NAME):
+        for nb_step in NB_ATTACK_STEPS:
             name_eddited = name.format(nb=nb_step)
+            if name_eddited in ['vgg_conv22_2steps', 'vgg_conv22_3steps', 'vgg_conv22_5steps', 'vgg_conv22_7steps', 'vgg_conv33_2steps', 'vgg_conv33_3steps', 'vgg_conv33_5steps', 'vgg_conv33_7steps', 'vgg_conv43_2steps']:
+                logger.info(f'Skipping {name_eddited}, already computed')
+                continue
             logger.info(f'Run on layer {layer} with {nb_step} steps -> {name_eddited}')
             attacker = NRDM(
                 layer=layer,

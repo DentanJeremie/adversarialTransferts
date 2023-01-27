@@ -4,6 +4,10 @@ import os
 from pathlib import Path
 import typing as t
 
+ORIGINAL_FILES_SUFFIX = 'originals.pt'
+CORRUPTED_FILES_SUFFIX = 'corrupted.pt'
+LABELS_FILES_SUFFIX = 'labels.pt'
+PLOT_FILES_SUFFIX = 'plot.png'
 
 class CustomizedPath():
 
@@ -116,10 +120,10 @@ class CustomizedPath():
         return self.mkdir_if_not_exists(self.output / 'corruptions')
     
     def get_new_corruptions_files(self, corruption_name):
-        original_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_originals.pt'
-        corruption_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_corrupted.pt'
-        labels_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_labels.pt'
-        plot_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_plot.png'
+        original_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{ORIGINAL_FILES_SUFFIX}'
+        corruption_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{CORRUPTED_FILES_SUFFIX}'
+        labels_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{LABELS_FILES_SUFFIX}'
+        plot_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{PLOT_FILES_SUFFIX}'
         with original_path.open('w') as f:
             pass
         with corruption_path.open('w') as f:
@@ -129,5 +133,54 @@ class CustomizedPath():
         with plot_path.open('w') as f:
             pass
         return original_path, corruption_path, labels_path, plot_path
+
+    def get_lastest_corruptions_file(self, corruption_name, file_suffix):
+        if file_suffix not in [ORIGINAL_FILES_SUFFIX, CORRUPTED_FILES_SUFFIX, LABELS_FILES_SUFFIX, PLOT_FILES_SUFFIX]:
+            raise ValueError('The file suffixe is not correct')
+            
+        files = sorted([
+            str(path)
+            for path in self.corruptions.iterdir()
+            if path.is_file()
+            and (corruption_name + '_') in str(path)
+            and str(path)[-len(file_suffix):] == file_suffix 
+        ])
+
+        if len(files) == 0:
+            return None
+            
+        return Path(files[-1])
+
+# ------------------ CLASSIFIERS ------------------
+
+    @property
+    def classifiers(self):
+        return self.mkdir_if_not_exists(self.output / 'classifiers')
+    
+    def get_new_trained_classifier_file(self, classifier_name):
+        result = self.classifiers / f'{classifier_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_classifier.pt'
+        with result.open('w') as f:
+            pass
+        return result
+
+    def get_lastest_trained_classifiers_file(self, classifier_name):
+        files = sorted([
+            str(path)
+            for path in self.classifiers.iterdir()
+            if path.is_file()
+            and (classifier_name + '_') in str(path)
+        ])
+
+        if len(files) == 0:
+            return None
+
+        return Path(files[-1])
+
+    def get_new_classification_result_path(self, classifier_name, nb_epochs):
+        result = self.classifiers / f'{classifier_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{nb_epochs}_epochs_classification_result.csv'
+        with result.open('w') as f:
+            pass
+        return result
+
 
 project = CustomizedPath() 
