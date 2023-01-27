@@ -50,6 +50,6 @@ However, you can directly use the adversariales images and models we generated /
 * Download the adversarial images [here](https://www.icloud.com/iclouddrive/0d6AmPWWqsORnrb5iqlD7VGNQ#corruptions) and put the `corruptions` folder in `/output`.
 * Download the pretrained models [here](https://www.icloud.com/iclouddrive/0d0I13FmCcx7oL9mOwQcf2B-w#classifiers) and put the `classifiers` folder in `/output`.
 
-### License and Disclaimer
+## License and Disclaimer
 
 You may use this software under the Apache 2.0 License. See LICENSE.
