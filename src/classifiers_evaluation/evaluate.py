@@ -20,7 +20,7 @@ from src.attack.nrdm import ATTACK_FINAL_NAMES
 
 DEFAULT_OPTIMIZER_LR = 0.001
 DEFAULT_LOSS = nn.CrossEntropyLoss()
-DEFAULT_EPOCHS_TRAIN = 5
+DEFAULT_EPOCHS_TRAIN = 2
 DEFAULT_EPOCHS_VAL = 5
 MODELS = [DenseNet(), ResNet(), VGG()]
 MODELS_NAMES = ['DenseNet', 'ResNet', 'VGG']
