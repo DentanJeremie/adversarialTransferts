@@ -18,6 +18,7 @@ DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
 VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
+DEFAULT_FULL_MODEL = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT)
 
 
 class NRDM():
@@ -28,6 +29,7 @@ class NRDM():
         epsilon = DEFAULT_EPSILON, 
         nb_attack_step = DEFAULT_ATTACK_STEP, 
         attack_name: str = DEFAULT_ATTACK_NAME,
+        model_full: torch.nn.Module = DEFAULT_FULL_MODEL,
     ):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,12 +41,12 @@ class NRDM():
         self.dataset: TinyImageNetDataset = tiny_imagenet
 
         # Model
-        logger.info(f'Loading VGG model...')
+        logger.info(f'Loading the full model...')
         self.output_layer = layer
-        model_full = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT)
+        model_full = model_full
         layers = list(model_full.children())[0][:self.output_layer + 1]
-        self.model_conv33 = nn.Sequential(*layers).to(self.device).eval()
-        logger.info(f'Successfully loaded VGG on {str(self.device)} and truncated it to layer {self.output_layer}!')
+        self.model_truncated = nn.Sequential(*layers).to(self.device).eval()
+        logger.info(f'Successfully loaded the full model on {str(self.device)} and truncated it to layer {self.output_layer}!')
 
 
     def attack_step(
@@ -70,23 +72,24 @@ class NRDM():
         if `num_images`== -1, the corruption is run on the whole dataset.
         """
         if num_images == -1:
-            num_images = self.dataset.num_images
+            num_images = self.dataset.val_num_images
         else:
-            num_images = min(num_images, self.dataset.num_images)
+            num_images = min(num_images, self.dataset.val_num_images)
 
         self.original_data = None
         self.corrupted_data = None
         self.labels_data = None
 
         logger.info(f'Running corruption of {num_images} images')
-        for batch_number, (original_data, labels_data) in enumerate(self.dataset.loader):
+        for batch_number, (original_data, labels_data) in enumerate(self.dataset.val_loader):
             if batch_number % VERBOSE == 0:
                 logger.debug(f'Starting batch {batch_number+1}/{int(np.ceil(num_images/self.dataset.batch_size))}')
             original_data = t.cast(torch.Tensor, original_data)
+            labels_data = t.cast(torch.Tensor, labels_data)
 
             original_data = original_data.to(self.device)
             corrupted_data = torch.clone(original_data)
-            original_features = self.model_conv33(original_data)
+            original_features = self.model_truncated(original_data)
 
             for step in range(self.nb_attack_step):
                 # First step: we add a random noise to the image
@@ -97,8 +100,8 @@ class NRDM():
                 corrupted_data = corrupted_data.detach() 
                 corrupted_data.requires_grad = True
 
-                self.model_conv33.zero_grad()
-                corrupted_features = self.model_conv33(corrupted_data)
+                self.model_truncated.zero_grad()
+                corrupted_features = self.model_truncated(corrupted_data)
                 loss = F.mse_loss(corrupted_features, original_features)
                 loss.backward(retain_graph = True if step < self.nb_attack_step-1 else False)
 
@@ -107,19 +110,19 @@ class NRDM():
 
             # Adding to self.original_data and self.corrupted_data
             if self.original_data is None:
-                self.original_data = original_data
+                self.original_data = original_data.detach().cpu()
             else:
-                self.original_data = torch.cat((self.original_data, original_data), dim=0)
+                self.original_data = torch.cat((self.original_data, original_data.detach().cpu()), dim=0)
 
             if self.corrupted_data is None:
-                self.corrupted_data = corrupted_data
+                self.corrupted_data = corrupted_data.detach().cpu()
             else:
-                self.corrupted_data = torch.cat((self.corrupted_data, corrupted_data), dim=0)
+                self.corrupted_data = torch.cat((self.corrupted_data, corrupted_data.detach().cpu()), dim=0)
 
             if self.labels_data is None:
-                self.labels_data = labels_data
+                self.labels_data = labels_data.detach().cpu()
             else:
-                self.labels_data = torch.cat((self.labels_data, labels_data), dim=0)
+                self.labels_data = torch.cat((self.labels_data, labels_data.detach().cpu()), dim=0)
 
             # Checking the number of images
             if num_images>= 0 and self.original_data.size(0) >= num_images:
@@ -159,12 +162,33 @@ class NRDM():
             axs[i, 1].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
         plt.savefig(save_path)
 
-# show(nrdm14.run_corruption(2))
+    def clear_gpu(self):
+        """Clears the GPU memory, and brings back everything to CPU"""
+        logger.info('Clearing GPU memory and bringing everything back to CPU')
+        self.model_truncated.cpu()
+        self.original_data.cpu()
+        self.corrupted_data.cpu()
+        self.labels_data.cpu()
+        torch.cuda.empty_cache()
+
 
 def main():
-    nrdm14 = NRDM(14)
-    nrdm14.run_corruption(-1)
+    layers = [7, 14, 21]
+    nb_attack_step = [2, 3, 5, 7]
+    attack_name = ['vgg_conv22_{nb}steps', 'vgg_conv33_{nb}steps', 'vgg_conv43_{nb}steps']
+    for layer, name in zip(layers, attack_name):
+        for nb_step in nb_attack_step:
+            name_eddited = name.format(nb=nb_step)
+            logger.info(f'Run on layer {layer} with {nb_step} steps -> {name_eddited}')
+            attacker = NRDM(
+                layer=layer,
+                nb_attack_step=nb_step,
+                attack_name=name_eddited
+            )
+            attacker.run_corruption(-1)
 
+            del attacker
+            torch.cuda.empty_cache()
 
 if __name__ == '__main__':
     main()
