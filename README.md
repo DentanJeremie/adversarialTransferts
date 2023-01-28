@@ -17,7 +17,7 @@ export PYTHONPATH=$(pwd)
 
 ### Execute the code
 
-Two steps are implemented in this repository: computing adversarial attacks on images with NRDM algorithm, and evaluating thos attacks. The dataset we use is [Tiny_ImageNet-200](https://paperswithcode.com/dataset/tiny-imagenet). It is automatically downloaded by our pipeline.
+Two steps are implemented in this repository: The first is computing adversarial attacks on images using either the NRDM algorithm at nrmd.py module, or the decorrelate_fft_attack.py module. The second step is evaluating those attacks on different models (not necessarily those the threat models were trained on). The dataset we use is [Tiny_ImageNet-200](https://paperswithcode.com/dataset/tiny-imagenet). It is automatically downloaded by our pipeline.
 
 **To run the attacks:**
 

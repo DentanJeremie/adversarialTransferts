@@ -167,7 +167,7 @@ class CustomizedPath():
         files = sorted([
             str(path)
             for path in self.classifiers.iterdir()
-            if path.is_file()
+            if path.is_file() and path.suffix == '.pt'
             and (classifier_name + '_') in str(path)
         ])
 
