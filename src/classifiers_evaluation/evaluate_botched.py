@@ -17,15 +17,23 @@ from src.attack.decorrelate_fft_attack import ATTACK_FINAL_NAMES as FFT_ATTACK_F
     Normally we should train on tiny imagenet training set and evaluate on validation set.
     We evaluate the accuracy of the fine tuned models on the corrupted datasets.
     We then look at how corruptions coming from different models affect this accuracy.
+    ATTACK_NAME = ['Decorrelate_False_FFT_False_22_{nb}steps'] #'Decorrelate_FFT_33_{nb}steps', 'Decorrelate_FFT_43_{nb}steps']
+    ATTACK_FINAL_NAMES =  ['Decorrelate_False_FFT_False_22_100steps']
 """
 
 DEFAULT_OPTIMIZER_LR = 0.001
 DEFAULT_LOSS = nn.CrossEntropyLoss()
 DEFAULT_EPOCHS_TRAIN = 2
 DEFAULT_EPOCHS_VAL = 5
-MODELS = [DenseNet()] # DenseNet(), ResNet(), VGG()
-MODELS_NAMES = ['DenseNet']  # ['DenseNet', 'ResNet', 'VGG']
+MODELS = [DenseNet(), ResNet()] # DenseNet(), , VGG()
+MODELS_NAMES = ['DenseNet', 'ResNet']  # ['DenseNet', 'ResNet', 'VGG']
 RESULTS_HEADER = ['Dataset', 'Accuracy']
+FFT_ATTACK_FINAL_NAMES = ['Decorrelate_FFT_22_100steps', 
+                          'Decorrelate_FFT_22_250steps', 
+                          'Decorrelate_FFT_33_100steps',
+                          'Decorrelate_FFT_33_250steps', 
+                          'Decorrelate_False_FFT_False_22_100steps'] 
+
 
 
 class AdverseEvaluator():
@@ -51,7 +59,7 @@ class AdverseEvaluator():
 
         # Checking model on disk
         self.model_trained = False
-        """possible_existing_file = project.get_lastest_trained_classifiers_file(self.model_name)
+        possible_existing_file = project.get_lastest_trained_classifiers_file(self.model_name)
         if possible_existing_file is not None:
             logger.info(f'Found a trained version at {project.as_relative(possible_existing_file)}')
             try:
@@ -59,7 +67,7 @@ class AdverseEvaluator():
                 logger.info('Successfully loaded the trained model from disk!')
                 self.model_trained = True
             except RuntimeError:
-                logger.info('Unable to load the model from the disk, preparing for training')"""
+                logger.info('Unable to load the model from the disk, preparing for training')
 
     def train(self):
         """
@@ -226,12 +234,12 @@ def evaluate_one_loader(loader, model) -> float:
 
 prop_correct = self.evaluate_one_loader(loader)
 
-attack1 = "Decorrelate_FFT_222steps"
-attack2 = 'Decorrelate_FFT_433steps'
-PP1 = project.get_lastest_corruptions_file(attack1, CORRUPTED_FILES_SUFFIX)
-PP2 = project.get_lastest_corruptions_file(attack2, CORRUPTED_FILES_SUFFIX)
-tsr1 = torch.load(PP1)
-tsr2 = torch.load(PP2)
+attack1 = "Decorrelate_FFT_22_100steps"
+attack2 = 'Decorrelate_FFT_22_250steps'
+QQ1 = project.get_lastest_corruptions_file(attack1, CORRUPTED_FILES_SUFFIX)
+QQ2 = project.get_lastest_corruptions_file(attack2, CORRUPTED_FILES_SUFFIX)
+tsrq1 = torch.load(QQ1)
+tsrq2 = torch.load(QQ2)
 (tsr1==tsr2).all()
 tiny_imagenet.val_dataset[0][0] 
 

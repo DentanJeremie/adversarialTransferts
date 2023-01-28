@@ -23,9 +23,11 @@ DEFAULT_OPTIMIZER_LR = 0.001
 DEFAULT_LOSS = nn.CrossEntropyLoss()
 DEFAULT_EPOCHS_TRAIN = 2
 DEFAULT_EPOCHS_VAL = 5
-MODELS = [DenseNet()] # DenseNet(), ResNet(), VGG()
-MODELS_NAMES = ['DenseNet']  # ['DenseNet', 'ResNet', 'VGG']
+MODELS =  [DenseNet(), ResNet(), VGG()]
+MODELS_NAMES =['DenseNet', 'ResNet', 'VGG']
 RESULTS_HEADER = ['Dataset', 'Accuracy']
+ATTACK_TYPE =  'FFT' # 'NRDM' or 'FFT'
+ATTACK_FINAL_NAMES = NRDM_ATTACK_FINAL_NAMES if ATTACK_TYPE == 'NRDM' else FFT_ATTACK_FINAL_NAMES
 
 
 class AdverseEvaluator():
@@ -115,16 +117,27 @@ class AdverseEvaluator():
         results.append(['original', prop_correct])
         logger.info(f'Accuracy on original images: {prop_correct}')
 
-        for attack_name in FFT_ATTACK_FINAL_NAMES:
+        for attack_name in ATTACK_FINAL_NAMES:
             logger.info(f'Reading corrupted data for attack {attack_name}...')
             if project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX) is None:
                 logger.info('No data found, skipping')
                 continue
 
-            loader = tiny_imagenet.get_loader_from_tensors(
-                torch.load(project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX))
-            )
-            prop_correct = self.evaluate_one_loader(loader)
+            if ATTACK_TYPE == 'FFT':
+                PP = project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX)
+                tsr = torch.load(PP)
+                data = torch.zeros(10000, 3, 64, 64)
+                j = 0
+                for i in range(0, 10000, 32):
+                    data[i] = tsr[j]
+                    j += 1
+                loader = tiny_imagenet.get_loader_from_tensors(data)
+                prop_correct = self.evaluate_one_loader_FFT(loader)
+            else:
+                loader = tiny_imagenet.get_loader_from_tensors(
+                    torch.load(project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX))
+                )
+                prop_correct = self.evaluate_one_loader(loader)
             results.append([attack_name, prop_correct])
             logger.info(f'Accuracy on {attack_name}: {prop_correct}')
 
@@ -142,6 +155,23 @@ class AdverseEvaluator():
         self.model.eval()
         for data, target in loader:
             length += data.size(0)
+            data, target = data.to(self.device), target.to(self.device)
+            output = self.model(data)
+            pred = output.argmax(dim=1, keepdim=True)  
+            correct += pred.eq(target.argmax(dim=1, keepdim=True).view_as(pred)).sum().item()
+        return correct / length
+    
+    def evaluate_one_loader_FFT(self, loader) -> float:
+        """Returns the proportion of correctly classified images for one given loader.
+        In case batches are supprted, use evaluate_one_loader instead of this function
+        """
+        correct = 0
+        length = 0
+        self.model.eval()
+        for data, target in loader:
+            data = data[0].unsqueeze(0)
+            target = target[0].unsqueeze(0)
+            length += 1
             data, target = data.to(self.device), target.to(self.device)
             output = self.model(data)
             pred = output.argmax(dim=1, keepdim=True)  

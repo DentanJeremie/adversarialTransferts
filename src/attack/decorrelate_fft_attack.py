@@ -31,37 +31,15 @@ DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
 VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'Decorrelate_FFT'
-DEFAULT_MODEL =   torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) #vgg16(pretrained=True)
-
-LAYERS =  ["features_7", "features_14", "features_21"]
-NB_ATTACK_STEPS = [100, 250] #, 5, 7, 10]
-ATTACK_NAME = ['Decorrelate_FFT_22_{nb}steps', 'Decorrelate_FFT_33_{nb}steps', 'Decorrelate_FFT_43_{nb}steps']
-
-ATTACK_FINAL_NAMES =  ['Decorrelate_FFT_22_100steps',
-                      'Decorrelate_FFT_22_250steps',
-                        'Decorrelate_FFT_33_100steps',
-                        'Decorrelate_FFT_33_250steps',
-                        'Decorrelate_FFT_43_100steps',
-                        'Decorrelate_FFT_43_250steps',
-                        ]
-
-ATTACK_FINAL_NAMES0 = ['Decorrelate_FFT_222steps',
-                      'Decorrelate_FFT_223steps',
-                      'Decorrelate_FFT_225steps',
-                      'Decorrelate_FFT_227steps',
-                      'Decorrelate_FFT_2210steps',
-                      'Decorrelate_FFT_332steps',
-                      'Decorrelate_FFT_333steps',
-                      'Decorrelate_FFT_335steps',
-                      'Decorrelate_FFT_337steps',
-                      'Decorrelate_FFT_3310steps',
-                      'Decorrelate_FFT_432steps',
-                      'Decorrelate_FFT_433steps',
-                      'Decorrelate_FFT_435steps',
-                      'Decorrelate_FFT_437steps',
-                      'Decorrelate_FFT_4310steps',       
-                      ]
-
+DEFAULT_MODEL = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) 
+DECORRELATE, FFT = True, True
+LAYERS = [ "features_5", "features_7"] # Layers are to be fixed according to lucent documentation
+NB_ATTACK_STEPS = [100, 250]
+ATTACK_NAME = DEFAULT_ATTACK_NAME
+ATTACK_FINAL_NAMES = ['Decorrelate_{}_FFT_{}_5_100steps'.format(DECORRELATE, FFT),
+                      'Decorrelate_{}_FFT_{}_5_250steps'.format(DECORRELATE, FFT),
+                      'Decorrelate_{}_FFT_{}_7_100steps'.format(DECORRELATE, FFT),
+                      'Decorrelate_{}_FFT_{}_7_250steps'.format(DECORRELATE, FFT)]
 
 
 class Decorrelate_FFT_attack():
@@ -99,7 +77,8 @@ class Decorrelate_FFT_attack():
 
     def attack_param_batch(self, original_data, decorrelate=True, fft=True):
         """
-        Not working
+        Not working, Lucent apparently does not support batch attack.
+        Left code for futur reference.
         """
         params, image = param.image(*original_data.shape[2:], batch = original_data.shape[0], decorrelate=decorrelate, fft=fft)
         print("image() ",image().shape)
@@ -143,10 +122,9 @@ class Decorrelate_FFT_attack():
                 logger.debug(f'Starting batch {batch_number+1}/{int(np.ceil(num_images/self.dataset.batch_size))}')
             original_data = t.cast(torch.Tensor, original_data)
             labels_data = t.cast(torch.Tensor, labels_data)
-
+            # Batch is not supported, so we only pick the first image of the batch
             original_data = original_data[0].to(self.device)
-            #corrupted_data = torch.clone(original_data)
-            param_f = lambda: self.attack_param(original_data, decorrelate=True, fft=True)
+            param_f = lambda: self.attack_param(original_data, decorrelate=DECORRELATE, fft=FFT)
             
             params, image_f = param_f()
 
