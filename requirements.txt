@@ -6,3 +6,4 @@ tqdm
 imageio
 requests
 pandas
+torch-lucent
