@@ -14,6 +14,8 @@ import torchvision
 
 from lucent.optvis import render, param, transform, objectives
 from lucent.modelzoo import inceptionv1, vgg16
+import torchvision
+
 from lucent.misc.io import show
 from lucent.optvis.objectives import wrap_objective
 
@@ -22,17 +24,17 @@ from src.utils.logging import logger
 from src.utils.datasets import tiny_imagenet, TinyImageNetDataset
 
 
-DEFAULT_LAYERS = ['features_30']
+DEFAULT_LAYERS = ["features_5"]
 
 DEFAULT_EPSILON = 16/256
 DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
 VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'Decorrelate_FFT'
-DEFAULT_MODEL = vgg16(pretrained=True)
+DEFAULT_MODEL = vgg16(pretrained=True) #  torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) #
 
-LAYERS = [['features_30']]
-NB_ATTACK_STEPS = [2, 3, 5, 7, 10]
+LAYERS = ['features_30']
+NB_ATTACK_STEPS = [2] #, 3, 5, 7, 10]
 ATTACK_NAME = ['Decorrelate_FFT_{nb}steps']
 ATTACK_FINAL_NAMES = [
     'Decorrelate_FFT_2steps',
@@ -69,13 +71,15 @@ class Decorrelate_FFT_attack():
         logger.info(f'Successfully loaded the model on {str(self.device)}!')
 
     def attack_param(self, original_data, decorrelate=True, fft=True):
-        params, image = param.image(*original_data.shape[:2], decorrelate=decorrelate, fft=fft)
+        params, image = param.image(*original_data.shape[1:], 
+                                    decorrelate=decorrelate, fft=fft)
+        #print("image() ",image().shape)
         def inner():
             attack_input = image()[0]
-            print(attack_input.size)
-            print(original_data.size)
-            original_data = torch.permute(original_data, [2, 1, 0])
-            return torch.stack([attack_input + original_data + self.epsilon/2 * torch.randn_like(original_data), original_data])
+            #print("original_data ",original_data.shape)
+            res = torch.stack([attack_input + original_data + self.epsilon/2 * torch.randn_like(original_data), original_data], dim=0)
+            #print("res ", res.shape)
+            return res
         return params, inner
 
     def MSE(a, b):
@@ -88,7 +92,6 @@ class Decorrelate_FFT_attack():
             corrupted_features = [T(layer)[0] for layer in self.output_layers]
             losses = [activation_loss_f(a, b) for a, b in zip(original_features, corrupted_features)]
             return sum(losses)
-
         return inner
 
     def run_corruption(self, num_images = -1) -> None:
@@ -112,17 +115,20 @@ class Decorrelate_FFT_attack():
             original_data = t.cast(torch.Tensor, original_data)
             labels_data = t.cast(torch.Tensor, labels_data)
 
-            original_data = original_data.to(self.device)
-            corrupted_data = torch.clone(original_data)
+            original_data = original_data[0].to(self.device)
+            #corrupted_data = torch.clone(original_data)
             param_f = lambda: self.attack_param(original_data, decorrelate=True, fft=True)
             
             params, image_f = param_f()
-            print(image_f().shape)
 
-            objective = self.features_difference(self.output_layers)
+            objective = self.features_difference()
             objective.description = "Attack Loss"
-
+            
+            self.model.to(self.device).eval()
             corrupted_data = render.render_vis(self.model, -objective, param_f, show_inline=True, thresholds = [self.nb_attack_step])[0][0]
+            corrupted_data = torch.permute(torch.tensor(corrupted_data), [2,0,1])
+            corrupted_data = torch.clamp(corrupted_data, original_data.cpu() - self.epsilon, original_data.cpu() + self.epsilon)
+            corrupted_data = torch.clamp(corrupted_data, 0, 1)
 
             # Adding to self.original_data and self.corrupted_data
             if self.original_data is None:
@@ -131,9 +137,9 @@ class Decorrelate_FFT_attack():
                 self.original_data = torch.cat((self.original_data, original_data.detach().cpu()), dim=0)
 
             if self.corrupted_data is None:
-                self.corrupted_data = corrupted_data.detach().cpu()
+                self.corrupted_data = corrupted_data
             else:
-                self.corrupted_data = torch.cat((self.corrupted_data, corrupted_data.detach().cpu()), dim=0)
+                self.corrupted_data = torch.cat((self.corrupted_data, corrupted_data), dim=0)
 
             if self.labels_data is None:
                 self.labels_data = labels_data.detach().cpu()
@@ -192,7 +198,7 @@ def main():
     for layer, name in zip(LAYERS, ATTACK_NAME):
         for nb_step in NB_ATTACK_STEPS:
             name_eddited = name.format(nb=nb_step)
-            logger.info(f'Run on layer {layer} with {nb_step} steps -> {name_eddited}')
+            logger.info(f'Run DFA on layer {layer} with {nb_step} steps -> {name_eddited}')
             attacker = Decorrelate_FFT_attack(
                 layers=[layer],
                 nb_attack_step=nb_step,
@@ -205,4 +211,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+        
         
