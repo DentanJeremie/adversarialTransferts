@@ -51,7 +51,7 @@ class AdverseEvaluator():
 
         # Checking model on disk
         self.model_trained = False
-        possible_existing_file = project.get_lastest_trained_classifiers_file(self.model_name)
+        """possible_existing_file = project.get_lastest_trained_classifiers_file(self.model_name)
         if possible_existing_file is not None:
             logger.info(f'Found a trained version at {project.as_relative(possible_existing_file)}')
             try:
@@ -59,7 +59,7 @@ class AdverseEvaluator():
                 logger.info('Successfully loaded the trained model from disk!')
                 self.model_trained = True
             except RuntimeError:
-                logger.info('Unable to load the model from the disk, preparing for training')
+                logger.info('Unable to load the model from the disk, preparing for training')"""
 
     def train(self):
         """
@@ -120,10 +120,15 @@ class AdverseEvaluator():
             if project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX) is None:
                 logger.info('No data found, skipping')
                 continue
+            PP = project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX)
+            tsr = torch.load(PP)
+            data = torch.zeros(10000, 3, 64, 64)
+            j = 0
+            for i in range(0, 10000, 32):
+                data[i] = tsr[j]
+                j += 1
 
-            loader = tiny_imagenet.get_loader_from_tensors(
-                torch.load(project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX))
-            )
+            loader = tiny_imagenet.get_loader_from_tensors(data)
             prop_correct = self.evaluate_one_loader(loader)
             results.append([attack_name, prop_correct])
             logger.info(f'Accuracy on {attack_name}: {prop_correct}')
@@ -141,7 +146,9 @@ class AdverseEvaluator():
         length = 0
         self.model.eval()
         for data, target in loader:
-            length += data.size(0)
+            data = data[0].unsqueeze(0)
+            target = target[0].unsqueeze(0)
+            length += 1
             data, target = data.to(self.device), target.to(self.device)
             output = self.model(data)
             pred = output.argmax(dim=1, keepdim=True)  
@@ -156,3 +163,82 @@ def main():
 if __name__ == '__main__':  
     main()
     
+
+
+
+################
+
+"""
+import torch
+from PIL import Image
+import numpy as np
+
+import pathlib
+import typing as t
+
+from matplotlib import pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision
+
+from src.utils.pathtools import project, CORRUPTED_FILES_SUFFIX
+from src.utils.logging import logger
+from src.utils.datasets import tiny_imagenet, TinyImageNetDataset
+from src.classifiers_evaluation.models import DenseNet, ResNet, VGG
+from src.attack.nrdm import ATTACK_FINAL_NAMES as NRDM_ATTACK_FINAL_NAMES
+from src.attack.decorrelate_fft_attack import ATTACK_FINAL_NAMES as FFT_ATTACK_FINAL_NAMES
+
+
+
+CORRUPTED_FILES_SUFFIX = 'corrupted.pt'
+
+attack_name = 'Decorrelate_FFT_2steps'
+
+
+PP2 = project.get_lastest_corruptions_file(attack2, CORRUPTED_FILES_SUFFIX)
+tsr = torch.load(PP)
+data = torch.zeros(10000, 3, 64, 64)
+j = 0
+for i in range(0, 10000, 32):
+    data[i] = tsr[j]
+    j += 1
+
+loader  = tiny_imagenet.get_loader_from_tensors(data)
+
+
+
+model = VGG()
+
+def evaluate_one_loader(loader, model) -> float:
+    correct = 0
+    length = 0
+    self.model.eval()
+    for data, target in loader:
+        length += data.size(0)
+        data, target = data.to(self.device), target.to(self.device)
+        output = self.model(data)
+        pred = output.argmax(dim=1, keepdim=True)  
+        correct += pred.eq(target.argmax(dim=1, keepdim=True).view_as(pred)).sum().item()
+    return correct / length
+
+
+prop_correct = self.evaluate_one_loader(loader)
+
+attack1 = "Decorrelate_FFT_222steps"
+attack2 = 'Decorrelate_FFT_433steps'
+PP1 = project.get_lastest_corruptions_file(attack1, CORRUPTED_FILES_SUFFIX)
+PP2 = project.get_lastest_corruptions_file(attack2, CORRUPTED_FILES_SUFFIX)
+tsr1 = torch.load(PP1)
+tsr2 = torch.load(PP2)
+(tsr1==tsr2).all()
+tiny_imagenet.val_dataset[0][0] 
+
+img1 = tsr1[0]
+img2 = tsr2[0]
+plt.imshow(img1)
+plt.savefig("output/trash01")
+plt.imshow(img2)
+plt.savefig("output/trash02")
+"""

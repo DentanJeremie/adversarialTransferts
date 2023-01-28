@@ -31,18 +31,37 @@ DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
 VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'Decorrelate_FFT'
-DEFAULT_MODEL = vgg16(pretrained=True) #  torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) #
+DEFAULT_MODEL =   torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) #vgg16(pretrained=True)
 
-LAYERS = ['features_30']
-NB_ATTACK_STEPS = [2] #, 3, 5, 7, 10]
-ATTACK_NAME = ['Decorrelate_FFT_{nb}steps']
-ATTACK_FINAL_NAMES = [
-    'Decorrelate_FFT_2steps',
-    'Decorrelate_FFT_3steps',
-    'Decorrelate_FFT_5steps',
-    'Decorrelate_FFT_7steps',
-    'Decorrelate_FFT_10steps',
-]
+LAYERS =  ["features_7", "features_14", "features_21"]
+NB_ATTACK_STEPS = [100, 250] #, 5, 7, 10]
+ATTACK_NAME = ['Decorrelate_FFT_22_{nb}steps', 'Decorrelate_FFT_33_{nb}steps', 'Decorrelate_FFT_43_{nb}steps']
+
+ATTACK_FINAL_NAMES =  ['Decorrelate_FFT_22_100steps',
+                      'Decorrelate_FFT_22_250steps',
+                        'Decorrelate_FFT_33_100steps',
+                        'Decorrelate_FFT_33_250steps',
+                        'Decorrelate_FFT_43_100steps',
+                        'Decorrelate_FFT_43_250steps',
+                        ]
+
+ATTACK_FINAL_NAMES0 = ['Decorrelate_FFT_222steps',
+                      'Decorrelate_FFT_223steps',
+                      'Decorrelate_FFT_225steps',
+                      'Decorrelate_FFT_227steps',
+                      'Decorrelate_FFT_2210steps',
+                      'Decorrelate_FFT_332steps',
+                      'Decorrelate_FFT_333steps',
+                      'Decorrelate_FFT_335steps',
+                      'Decorrelate_FFT_337steps',
+                      'Decorrelate_FFT_3310steps',
+                      'Decorrelate_FFT_432steps',
+                      'Decorrelate_FFT_433steps',
+                      'Decorrelate_FFT_435steps',
+                      'Decorrelate_FFT_437steps',
+                      'Decorrelate_FFT_4310steps',       
+                      ]
+
 
 
 class Decorrelate_FFT_attack():
@@ -69,16 +88,26 @@ class Decorrelate_FFT_attack():
         self.output_layers = layers
         self.model = model
         logger.info(f'Successfully loaded the model on {str(self.device)}!')
-
+    
     def attack_param(self, original_data, decorrelate=True, fft=True):
-        params, image = param.image(*original_data.shape[1:], 
-                                    decorrelate=decorrelate, fft=fft)
-        #print("image() ",image().shape)
+        params, image = param.image(*original_data.shape[1:], decorrelate=decorrelate, fft=fft)
         def inner():
             attack_input = image()[0]
-            #print("original_data ",original_data.shape)
             res = torch.stack([attack_input + original_data + self.epsilon/2 * torch.randn_like(original_data), original_data], dim=0)
-            #print("res ", res.shape)
+            return res
+        return params, inner
+
+    def attack_param_batch(self, original_data, decorrelate=True, fft=True):
+        """
+        Not working
+        """
+        params, image = param.image(*original_data.shape[2:], batch = original_data.shape[0], decorrelate=decorrelate, fft=fft)
+        print("image() ",image().shape)
+        def inner():
+            attack_input = image()
+            print("original_data ",original_data.shape)
+            res = torch.stack([attack_input + original_data + self.epsilon/2 * torch.randn_like(original_data), original_data], dim=1)
+            print("res ", res.shape)
             return res
         return params, inner
 
@@ -125,11 +154,16 @@ class Decorrelate_FFT_attack():
             objective.description = "Attack Loss"
             
             self.model.to(self.device).eval()
-            corrupted_data = render.render_vis(self.model, -objective, param_f, show_inline=True, thresholds = [self.nb_attack_step])[0][0]
+            corrupted_data = render.render_vis(self.model,  
+                                            -objective, param_f, 
+                                            show_inline=True, 
+                                            thresholds = [self.nb_attack_step])[0][0]
             corrupted_data = torch.permute(torch.tensor(corrupted_data), [2,0,1])
             corrupted_data = torch.clamp(corrupted_data, original_data.cpu() - self.epsilon, original_data.cpu() + self.epsilon)
             corrupted_data = torch.clamp(corrupted_data, 0, 1)
 
+            corrupted_data = corrupted_data.unsqueeze(0)
+            original_data = original_data.unsqueeze(0)
             # Adding to self.original_data and self.corrupted_data
             if self.original_data is None:
                 self.original_data = original_data.detach().cpu()
@@ -211,5 +245,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
         
