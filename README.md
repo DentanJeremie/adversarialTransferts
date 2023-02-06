@@ -62,7 +62,7 @@ Two types of attacks are run: regular NRDM attacks as described in the paper, an
 To run the evaluation of the attacks, execute the following line. The output of this step will be saved in `/output/classifiers`. There will be pretrained classifiers, as well as a `.csv` result file for each classifier corresponding to its performances on the adversarial images computed at the previous step. Moreover, there will be some logs in `/logs`.
 
 ```bash
-python -m src.classifiers_evaluation
+python -m src.evaluate
 ```
 
 ## Precomputed corruptions and pretrained classifiers
