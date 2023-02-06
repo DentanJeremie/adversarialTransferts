@@ -1,3 +1,7 @@
+"""
+This script performs the regular NRDM attack on images.
+"""
+
 import pathlib
 import typing as t
 
@@ -16,25 +20,24 @@ DEFAULT_LAYER = 14
 DEFAULT_EPSILON = 16/256
 DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
+DEFAULT_SAVE_ORIGINALS = False
+DEFAULT_SAVE_LABELS = False
 VERBOSE = 10
 DEFAULT_ATTACK_NAME = 'nrdm_vgg_conv33'
 DEFAULT_FULL_MODEL = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT)
 
 LAYERS = [7, 14, 21]
-NB_ATTACK_STEPS = [2, 3, 5, 7, 10]
+NB_ATTACK_STEPS = [3, 5, 7, 10]
 ATTACK_NAME = ['vgg_conv22_{nb}steps', 'vgg_conv33_{nb}steps', 'vgg_conv43_{nb}steps']
 ATTACK_FINAL_NAMES = [
-    'vgg_conv22_2steps',
     'vgg_conv22_3steps',
     'vgg_conv22_5steps',
     'vgg_conv22_7steps',
     'vgg_conv22_10steps',
-    'vgg_conv33_2steps',
     'vgg_conv33_3steps',
     'vgg_conv33_5steps',
     'vgg_conv33_7steps',
     'vgg_conv33_10steps',
-    'vgg_conv43_2steps',
     'vgg_conv43_3steps',
     'vgg_conv43_5steps',
     'vgg_conv43_7steps',
@@ -51,12 +54,16 @@ class NRDM():
         nb_attack_step = DEFAULT_ATTACK_STEP, 
         attack_name: str = DEFAULT_ATTACK_NAME,
         model_full: torch.nn.Module = DEFAULT_FULL_MODEL,
+        save_originals: bool = DEFAULT_SAVE_ORIGINALS,
+        save_labels: bool = DEFAULT_SAVE_LABELS,
     ):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.epsilon = epsilon
         self.nb_attack_step = nb_attack_step
         self.attack_name = attack_name
+        self.save_originals = save_originals
+        self.save_labels = save_labels
 
         # Dataset
         self.dataset: TinyImageNetDataset = tiny_imagenet
@@ -157,11 +164,13 @@ class NRDM():
 
         logger.info('Saving to disk...')
         original_path, corruption_path, labels_path, plot_path = project.get_new_corruptions_files(self.attack_name)
-        torch.save(self.original_data, original_path)
         torch.save(self.corrupted_data, corruption_path)
-        torch.save(self.labels_data, labels_path)
+        if self.save_originals:
+            torch.save(self.original_data, original_path)
+        if self.save_labels:
+            torch.save(self.labels_data, labels_path)
         self.plot_corruptions(DEFAUTL_NB_PLOT, plot_path)
-        logger.info(f'Saved to {project.as_relative(plot_path)}')
+        logger.info(f'Saved to {project.as_relative(corruption_path)}')
 
     def plot_corruptions(self, num_images: int, save_path: pathlib.Path):
         """Plots a torch tensor as image or a batch of image or a list of image"""

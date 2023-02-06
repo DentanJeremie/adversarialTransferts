@@ -1,3 +1,5 @@
-from src.attack.nrdm import main
+from src.attack.nrdm import main as main_nrdm
+from src.attack.decorrelate_fft import main as main_fft
 
-main()
+main_nrdm()
+main_fft()

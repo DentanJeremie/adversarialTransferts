@@ -8,9 +8,9 @@ import torch.nn.functional as F
 from src.utils.pathtools import project, CORRUPTED_FILES_SUFFIX
 from src.utils.logging import logger
 from src.utils.datasets import tiny_imagenet, TinyImageNetDataset
-from src.classifiers_evaluation.models import DenseNet, ResNet, VGG
+from src.evaluate.models import DenseNet, ResNet, VGG
 from src.attack.nrdm import ATTACK_FINAL_NAMES as NRDM_ATTACK_FINAL_NAMES
-from src.attack.decorrelate_fft_attack import ATTACK_FINAL_NAMES as FFT_ATTACK_FINAL_NAMES
+from src.attack.decorrelate_fft import ATTACK_FINAL_NAMES as FFT_ATTACK_FINAL_NAMES
 
 """
     We use models from models.py with frozen backbones that we fine tune on the tiny imagenet dataset.
@@ -26,8 +26,9 @@ DEFAULT_EPOCHS_VAL = 5
 MODELS =  [DenseNet(), ResNet(), VGG()]
 MODELS_NAMES =['DenseNet', 'ResNet', 'VGG']
 RESULTS_HEADER = ['Dataset', 'Accuracy']
-ATTACK_TYPE =  'FFT' # 'NRDM' or 'FFT'
-ATTACK_FINAL_NAMES = NRDM_ATTACK_FINAL_NAMES if ATTACK_TYPE == 'NRDM' else FFT_ATTACK_FINAL_NAMES
+FFT_ATTACK_NAME_MARKER = 'FFT'
+NRDM_ATTACK_NAME_MARKER = 'vgg'
+ATTACK_FINAL_NAMES = NRDM_ATTACK_FINAL_NAMES + FFT_ATTACK_FINAL_NAMES
 
 
 class AdverseEvaluator():
@@ -122,8 +123,8 @@ class AdverseEvaluator():
             if project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX) is None:
                 logger.info('No data found, skipping')
                 continue
-
-            if ATTACK_TYPE == 'FFT':
+            
+            if FFT_ATTACK_NAME_MARKER in attack_name:
                 PP = project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX)
                 tsr = torch.load(PP)
                 data = torch.zeros(10000, 3, 64, 64)
@@ -133,11 +134,15 @@ class AdverseEvaluator():
                     j += 1
                 loader = tiny_imagenet.get_loader_from_tensors(data)
                 prop_correct = self.evaluate_one_loader_FFT(loader)
-            else:
+            elif NRDM_ATTACK_NAME_MARKER in attack_name:
                 loader = tiny_imagenet.get_loader_from_tensors(
                     torch.load(project.get_lastest_corruptions_file(attack_name, CORRUPTED_FILES_SUFFIX))
                 )
                 prop_correct = self.evaluate_one_loader(loader)
+            else:
+                raise logger.error('Attack name not match to any attack type, skipping')
+                return
+
             results.append([attack_name, prop_correct])
             logger.info(f'Accuracy on {attack_name}: {prop_correct}')
 

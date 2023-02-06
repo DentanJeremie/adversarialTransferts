@@ -1,3 +1,7 @@
+"""
+This script performs the NRDM attack on the Fourrier space, using the `lucent` library.
+"""
+
 import torch
 from PIL import Image
 import numpy as np
@@ -30,16 +34,20 @@ DEFAULT_EPSILON = 16/256
 DEFAULT_ATTACK_STEP = 5
 DEFAUTL_NB_PLOT = 5
 VERBOSE = 10
-DEFAULT_ATTACK_NAME = 'Decorrelate_FFT'
+DEFAULT_SAVE_ORIGINALS = False
+DEFAULT_SAVE_LABELS = False
+DEFAULT_ATTACK_NAME = 'Decorrelate_FFT_5_100steps'
 DEFAULT_MODEL = torchvision.models.vgg16(weights = torchvision.models.VGG16_Weights.DEFAULT) 
 DECORRELATE, FFT = True, True
+
 LAYERS = [ "features_5", "features_7"] # Layers are to be fixed according to lucent documentation
+LAYERS_NUMBERS = [5,7]
 NB_ATTACK_STEPS = [100, 250]
-ATTACK_NAME = DEFAULT_ATTACK_NAME
-ATTACK_FINAL_NAMES = ['Decorrelate_{}_FFT_{}_5_100steps'.format(DECORRELATE, FFT),
-                      'Decorrelate_{}_FFT_{}_5_250steps'.format(DECORRELATE, FFT),
-                      'Decorrelate_{}_FFT_{}_7_100steps'.format(DECORRELATE, FFT),
-                      'Decorrelate_{}_FFT_{}_7_250steps'.format(DECORRELATE, FFT)]
+ATTACK_NAME = 'decorrelate_FFT_{layer}_{step}steps'
+ATTACK_FINAL_NAMES = ['decorrelate_FFT_5_100steps',
+                      'decorrelate_FFT_5_250steps',
+                      'decorrelate_FFT_7_100steps',
+                      'decorrelate_FFT_7_250steps']
 
 
 class Decorrelate_FFT_attack():
@@ -51,12 +59,16 @@ class Decorrelate_FFT_attack():
         nb_attack_step = DEFAULT_ATTACK_STEP, 
         attack_name: str = DEFAULT_ATTACK_NAME,
         model: torch.nn.Module = DEFAULT_MODEL,
+        save_originals: bool = DEFAULT_SAVE_ORIGINALS,
+        save_labels: bool = DEFAULT_SAVE_LABELS,
     ):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.epsilon = epsilon
         self.nb_attack_step = nb_attack_step
         self.attack_name = attack_name
+        self.save_originals = save_originals
+        self.save_labels = save_labels
 
         # Dataset
         self.dataset: TinyImageNetDataset = tiny_imagenet
@@ -134,8 +146,10 @@ class Decorrelate_FFT_attack():
             self.model.to(self.device).eval()
             corrupted_data = render.render_vis(self.model,  
                                             -objective, param_f, 
-                                            show_inline=True, 
-                                            thresholds = [self.nb_attack_step])[0][0]
+                                            show_inline=False, 
+                                            thresholds = [self.nb_attack_step],
+                                            progress=False,
+                                            show_image=False)[0][0]
             corrupted_data = torch.permute(torch.tensor(corrupted_data), [2,0,1])
             corrupted_data = torch.clamp(corrupted_data, original_data.cpu() - self.epsilon, original_data.cpu() + self.epsilon)
             corrupted_data = torch.clamp(corrupted_data, 0, 1)
@@ -170,11 +184,13 @@ class Decorrelate_FFT_attack():
 
         logger.info('Saving to disk...')
         original_path, corruption_path, labels_path, plot_path = project.get_new_corruptions_files(self.attack_name)
-        torch.save(self.original_data, original_path)
         torch.save(self.corrupted_data, corruption_path)
-        torch.save(self.labels_data, labels_path)
+        if self.save_originals:
+            torch.save(self.original_data, original_path)
+        if self.save_labels:
+            torch.save(self.labels_data, labels_path)
         self.plot_corruptions(DEFAUTL_NB_PLOT, plot_path)
-        logger.info(f'Saved to {project.as_relative(plot_path)}')
+        logger.info(f'Saved to {project.as_relative(corruption_path)}')
 
     def plot_corruptions(self, num_images: int, save_path: pathlib.Path):
         """Plots a torch tensor as image or a batch of image or a list of image"""
@@ -207,9 +223,9 @@ class Decorrelate_FFT_attack():
 
 
 def main():
-    for layer, name in zip(LAYERS, ATTACK_NAME):
+    for layer, layer_number in zip(LAYERS, LAYERS_NUMBERS):
         for nb_step in NB_ATTACK_STEPS:
-            name_eddited = name.format(nb=nb_step)
+            name_eddited = ATTACK_NAME.format(step=nb_step, layer=layer_number)
             logger.info(f'Run DFA on layer {layer} with {nb_step} steps -> {name_eddited}')
             attacker = Decorrelate_FFT_attack(
                 layers=[layer],

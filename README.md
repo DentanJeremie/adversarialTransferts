@@ -21,27 +21,31 @@ Two steps are implemented in this repository: The first is computing adversarial
 
 **To run the attacks:**
 
+To run the NRDM attack as described in *Task-generalizable Adversarial Attack based on Perceptual Metric*, execute the following line. This will create tensors corresponding to adversarial images in `/output/corruptions`, as well as logs in `/logs`.
+
 ```bash
 python -m src.attack
 ```
 
-This will create tensors corresponding to adversarial images in `/output/corruptions`, as well as logs in `/logs`.
+Two types of attacks are run: regular NRDM attacks as described in the paper, and NRDM attacks on the Fourrier space.
 
 **To run the evaluation:**
+
+To run the evaluation of the attacks, execute the following line. The output of this step will be saved in `/output/classifiers`. There will be pretrained classifiers, as well as a `.csv` result file for each classifier corresponding to its performances on the adversarial images computed at the previous step. Moreover, there will be some logs in `/logs`.
 
 ```bash
 python -m src.classifiers_evaluation
 ```
 
-The output of this step will be saved in `/output/classifiers`. There will be pretrained classifiers, as well as a `.csv` result file for each classifier corresponding to its performances on the adversarial images computed at the previous step. Moreover, there will be some logs in `/logs`.
-
 ## Precomputed corruptions and pretrained classifiers
 
 The computation of adversarial images and the training of the models takes time. More precisely:
 
-* On CPU, the computation of the adversarial images takes about 1h for each attack, and there are 15 of them.
-* On GPU, the computatino of the adversarial images takes takes less than 1min per attack.
+* On CPU, the computation of the adversarial images in regular space takes about 1h for each attack, and there are 12 of them.
+* On GPU, the computation of the adversarial images in regular space takes less than 3min per attack.
+* On GPU, the computation of the adversarial images in Fourrier space takes about 20min per attack, and there are 4 of them.
 * On GPU, the training of the models takes less than 5min by model, and there are 3 of them.
+* On GPU, the evaluation with a trained model takes of one type of attack takes about 10sec, and there are 12 regular NRDM attacks and 4 attacks on the Fourrier space.
 
 To run our code with batch size of 32, you will need at least 3Go of graphic memory. It you don't have that, please consider reducing the batch size in `src/utils/datasets`.
 

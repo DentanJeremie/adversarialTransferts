@@ -124,14 +124,7 @@ class CustomizedPath():
         corruption_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{CORRUPTED_FILES_SUFFIX}'
         labels_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{LABELS_FILES_SUFFIX}'
         plot_path = self.corruptions / f'{corruption_name}_{datetime.datetime.now().strftime("_%Y_%m%d__%H_%M_%S")}_{PLOT_FILES_SUFFIX}'
-        with original_path.open('w') as f:
-            pass
-        with corruption_path.open('w') as f:
-            pass
-        with labels_path.open('w') as f:
-            pass
-        with plot_path.open('w') as f:
-            pass
+        
         return original_path, corruption_path, labels_path, plot_path
 
     def get_lastest_corruptions_file(self, corruption_name, file_suffix):
